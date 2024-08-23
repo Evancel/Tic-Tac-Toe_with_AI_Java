@@ -1,0 +1,1151 @@
+type: edu
+files:
+  - name: src/tictactoe/Main.java
+    visible: true
+    text: |
+      package tictactoe;
+      
+      public class Main {
+          public static void main(String[] args) {
+              // write your code here
+          }
+      }
+    learner_created: false
+  - name: test/TicTacToeTest.java
+    visible: false
+    text: |
+      import org.hyperskill.hstest.dynamic.DynamicTest;
+      import org.hyperskill.hstest.stage.StageTest;
+      import org.hyperskill.hstest.testcase.CheckResult;
+      import org.hyperskill.hstest.testing.TestedProgram;
+      
+      import java.util.List;
+      
+      
+      public class TicTacToeTest extends StageTest<String> {
+      
+          int[] easyAiMoves = new int[9];
+      
+          @DynamicTest(order = 0)
+          CheckResult testBadParameters() {
+      
+              TestedProgram program = new TestedProgram();
+              program.start();
+      
+              String output = program.execute("start");
+              if (!output.toLowerCase().contains("bad parameters")) {
+                  return CheckResult.wrong("After entering start command with wrong parameters you should print 'Bad parameters!' and ask to enter a command again!");
+              }
+      
+              output = program.execute("start easy");
+              if (!output.toLowerCase().contains("bad parameters")) {
+                  return CheckResult.wrong("After entering start command with wrong parameters you should print 'Bad parameters!' and ask to enter a command again!");
+              }
+      
+              program.execute("exit");
+      
+              if (!program.isFinished()) {
+                  return CheckResult.wrong("After entering 'exit' command you should stop the program!");
+              }
+      
+              return CheckResult.correct();
+          }
+      
+      
+          @DynamicTest(order = 1)
+          CheckResult testGridOutput() {
+      
+              TestedProgram program = new TestedProgram();
+      
+              program.start();
+      
+              String output = program.execute("start user easy");
+      
+              Grid printedGrid = Grid.fromOutput(output);
+              Grid emptyGrid = Grid.fromLine("_________");
+      
+              if (!printedGrid.equals(emptyGrid)) {
+                  return CheckResult.wrong("After starting the program you should print an empty grid!\n" +
+                      "Correct empty grid:\n" + emptyGrid);
+              }
+      
+              if (!output.toLowerCase().contains("enter the coordinates:")) {
+                  return CheckResult.wrong("After printing an empty grid you should ask to enter cell coordinates!");
+              }
+      
+              output = program.execute("2 2");
+      
+              Grid gridAfterMove = Grid.fromOutput(output);
+              Grid correctGridAfterMove = Grid.fromLine("____X____");
+      
+              if (!gridAfterMove.equals(correctGridAfterMove)) {
+                  return CheckResult.wrong("After making the move wrong grid was printed.\n" +
+                      "Your grid:\n" + gridAfterMove + "\n" +
+                      "Correct grid:\n" + correctGridAfterMove);
+              }
+      
+              if (!output.toLowerCase().replace("'", "\"").contains("making move level \"easy\"")) {
+                  return CheckResult.wrong("After entering a cell coordinates you should print:\nMaking move level \"easy\"");
+              }
+      
+              Grid gridAfterAiMove = Grid.fromOutput(output, 2);
+      
+              if (gridAfterAiMove.equals(gridAfterMove)) {
+                  return CheckResult.wrong("After AI move grid wasn't changed!");
+              }
+      
+              Grid gameGrid = gridAfterAiMove;
+      
+              while (true) {
+                  if (gameGrid.getGameState() != GameState.NOT_FINISHED) {
+                      switch (gameGrid.getGameState()) {
+                          case X_WIN:
+                              if (!output.contains("X wins")) {
+                                  return CheckResult.wrong("You should print 'X wins' if X win the game");
+                              }
+                              break;
+                          case O_WIN:
+                              if (!output.contains("O wins")) {
+                                  return CheckResult.wrong("You should print 'O wins' if O win the game");
+                              }
+                              break;
+                          case DRAW:
+                              if (!output.contains("Draw")) {
+                                  return CheckResult.wrong("You should print 'Draw' if the game ends with draw!");
+                              }
+                              break;
+                      }
+                      break;
+                  }
+                  Position nextMove = Minimax.getMove(gameGrid, CellState.X);
+      
+                  Grid tempGrid = gameGrid.copy();
+                  tempGrid.setCell(nextMove.x, nextMove.y, CellState.X);
+      
+                  output = program.execute((nextMove.x + 1) + " " + (nextMove.y + 1));
+      
+                  gameGrid = Grid.fromOutput(output);
+      
+                  if (!gameGrid.equals(tempGrid)) {
+                      return CheckResult.wrong("After making move (" + nextMove + ") the game grid is wrong!\n" +
+                          "Your gird\n" + gameGrid + "\n" +
+                          "Correct grid\n" + tempGrid);
+                  }
+      
+                  if (gameGrid.getGameState() != GameState.NOT_FINISHED)
+                      continue;
+      
+                  gameGrid = Grid.fromOutput(output, 2);
+              }
+      
+              return CheckResult.correct();
+          }
+      
+          @DynamicTest(repeat = 100, order = 2)
+          CheckResult checkEasyAi() {
+              TestedProgram program = new TestedProgram();
+              program.start();
+      
+              program.execute("start user easy");
+      
+              String output = program.execute("2 2");
+      
+              Grid gridAfterAiMove = Grid.fromOutput(output, 2);
+      
+              CellState[][] array = gridAfterAiMove.getGrid();
+      
+              for (int i = 0; i < 9; i++) {
+                  if (i == 4) {
+                      continue;
+                  }
+                  if (array[i / 3][i % 3] == CellState.O) {
+                      easyAiMoves[i]++;
+                  }
+              }
+      
+              return CheckResult.correct();
+          }
+      
+          @DynamicTest(order = 3)
+          CheckResult checkRandom() {
+              double averageScore = 0;
+      
+              for (int i = 0; i < easyAiMoves.length; i++) {
+                  averageScore += (i + 1) * easyAiMoves[i];
+              }
+      
+              averageScore /= 8;
+      
+              double expectedValue = (double) (1 + 2 + 3 + 4 + 6 + 7 + 8 + 9) * 100 / 8 / 8;
+      
+              if (Math.abs(averageScore - expectedValue) > 20) {
+                  return CheckResult.wrong("Looks like your Easy level AI doesn't make a random move!");
+              }
+      
+              return CheckResult.correct();
+          }
+      
+          boolean isEasyNotMovingLikeMedium = false;
+      
+          @DynamicTest(repeat = 30, order = 4)
+          CheckResult checkEasyNotMovingLikeMedium() {
+      
+              if (isEasyNotMovingLikeMedium) {
+                  return CheckResult.correct();
+              }
+      
+              TestedProgram program = new TestedProgram();
+              program.start();
+              program.execute("start user easy");
+      
+              String output = program.execute("2 2");
+      
+              Grid gameGrid = Grid.fromOutput(output, 2);
+      
+              CellState[][] cellStates = gameGrid.getGrid();
+      
+              if (cellStates[0][0] == CellState.EMPTY && cellStates[2][2] == CellState.EMPTY) {
+                  output = program.execute("1 1");
+                  gameGrid = Grid.fromOutput(output, 2);
+                  if (gameGrid.getGrid()[2][2] == CellState.EMPTY) {
+                      isEasyNotMovingLikeMedium = true;
+                  }
+              } else {
+                  output = program.execute("1 3");
+                  gameGrid = Grid.fromOutput(output, 2);
+                  if (gameGrid.getGrid()[2][0] == CellState.EMPTY) {
+                      isEasyNotMovingLikeMedium = true;
+                  }
+              }
+      
+              program.stop();
+              return CheckResult.correct();
+          }
+      
+          @DynamicTest(order = 5)
+          CheckResult checkEasyNotMovingLikeMediumAfter() {
+              if (!isEasyNotMovingLikeMedium) {
+                  return CheckResult.wrong("Looks like your Easy level AI doesn't make a random move!");
+              }
+              return CheckResult.correct();
+          }
+      
+          @DynamicTest(order = 6)
+          CheckResult checkEasyVsEasy() {
+      
+              TestedProgram program = new TestedProgram();
+              program.start();
+      
+              String output = program.execute("start easy easy");
+      
+              List<Grid> gridList = Grid.allGridsFromOutput(output);
+      
+              Grid.checkGridSequence(gridList);
+      
+              return CheckResult.correct();
+          }
+      
+          @DynamicTest(repeat = 10, order = 7)
+          CheckResult checkMediumAi() {
+              TestedProgram program = new TestedProgram();
+              program.start();
+              program.execute("start user medium");
+      
+              String output = program.execute("2 2");
+      
+              Grid gameGrid = Grid.fromOutput(output, 2);
+      
+              CellState[][] cellStates = gameGrid.getGrid();
+      
+              if (cellStates[0][0] == CellState.EMPTY && cellStates[2][2] == CellState.EMPTY) {
+                  output = program.execute("1 1");
+                  gameGrid = Grid.fromOutput(output, 2);
+                  if (gameGrid.getGrid()[2][2] == CellState.EMPTY) {
+                      return CheckResult.wrong("Looks like your Medium level AI doesn't make a correct move!");
+                  }
+              } else {
+                  output = program.execute("1 3");
+                  gameGrid = Grid.fromOutput(output, 2);
+                  if (gameGrid.getGrid()[2][0] == CellState.EMPTY) {
+                      return CheckResult.wrong("Looks like your Medium level AI doesn't make a correct move!");
+                  }
+              }
+              program.stop();
+      
+              return CheckResult.correct();
+          }
+      
+          @DynamicTest(order = 8, repeat = 5)
+          CheckResult checkMediumVsMedium() {
+      
+              TestedProgram program = new TestedProgram();
+              program.start();
+      
+              String output = program.execute("start medium medium");
+      
+              List<Grid> gridList = Grid.allGridsFromOutput(output);
+      
+              Grid.checkGridSequence(gridList);
+      
+              return CheckResult.correct();
+          }
+      
+          boolean isMediumNotMovingLikeHard = false;
+      
+          @DynamicTest(repeat = 30, order = 9)
+          CheckResult checkMediumNotMovingLikeHard() {
+      
+              if (isMediumNotMovingLikeHard) {
+                  return CheckResult.correct();
+              }
+      
+              TestedProgram program = new TestedProgram();
+              program.start();
+      
+              program.execute("start user medium");
+      
+              String output = program.execute("2 2");
+      
+              Grid userMoveGrid = Grid.fromOutput(output, 1);
+              Grid mediumMoveGrid = Grid.fromOutput(output, 2);
+      
+              Position mediumMove = Grid.getMove(userMoveGrid, mediumMoveGrid);
+      
+              List<Position> minimaxCorrectPositions = Minimax.getAvailablePositions(userMoveGrid, CellState.O);
+      
+              if (!minimaxCorrectPositions.contains(mediumMove)) {
+                  isMediumNotMovingLikeHard = true;
+              }
+      
+              return CheckResult.correct();
+          }
+      
+          @DynamicTest(order = 10)
+          CheckResult checkMediumNotMovingLikeHardAfter() {
+              if (!isMediumNotMovingLikeHard) {
+                  return CheckResult.wrong("Looks like Medium level AI doesn't make a random move!");
+              }
+              return CheckResult.correct();
+          }
+      
+          @DynamicTest(order = 11)
+          CheckResult checkHardAi() {
+      
+              TestedProgram program = new TestedProgram();
+              program.start();
+      
+              String output = program.execute("start user hard");
+              Grid grid = Grid.fromOutput(output);
+              Position nextMove = Minimax.getMove(grid, CellState.X);
+              output = program.execute((nextMove.x + 1) + " " + (nextMove.y + 1));
+      
+              while (!output.toLowerCase().contains("win") && !output.toLowerCase().contains("draw")) {
+                  Grid gridAfterUserMove = Grid.fromOutput(output);
+                  Grid gridAfterAiMove = Grid.fromOutput(output, 2);
+                  Position aiMove = Grid.getMove(gridAfterUserMove, gridAfterAiMove);
+      
+                  List<Position> correctMinimaxMovePositions = Minimax.getAvailablePositions(gridAfterUserMove, CellState.O);
+                  if (!correctMinimaxMovePositions.contains(aiMove)) {
+                      return CheckResult.wrong("Your minimax algorithm is wrong! It chooses wrong positions to make a move!");
+                  }
+      
+                  nextMove = Minimax.getMove(gridAfterAiMove, CellState.X);
+      
+                  output = program.execute((nextMove.x + 1) + " " + (nextMove.y + 1));
+              }
+      
+              return CheckResult.correct();
+          }
+      
+          @DynamicTest(repeat = 5, order = 12)
+          CheckResult checkHardVsHard() {
+      
+              TestedProgram program = new TestedProgram();
+              program.start();
+      
+              String output = program.execute("start hard hard");
+      
+              if (!output.toLowerCase().contains("draw")) {
+                  return CheckResult.wrong("The result of the game between minimax algorithms should be always 'Draw'!\n" +
+                      "Make sure your output contains 'Draw'.");
+              }
+      
+              return CheckResult.correct();
+          }
+      }
+    learner_created: false
+  - name: src/tictactoe/MyFirstUmlD.puml
+    visible: true
+    text: |-
+      @startuml
+      'https://plantuml.com/class-diagram
+      
+      class TicTacToeGame{}
+      
+      @enduml
+    learner_created: true
+  - name: src/tictactoe/WrongInputException.java
+    visible: true
+    text: |
+      package tictactoe;
+      
+      public class WrongInputException extends Exception{
+          public WrongInputException(String message){
+              super(message);
+          }
+      }
+    learner_created: true
+  - name: src/tictactoe/UserParameters.java
+    visible: true
+    text: |
+      package tictactoe;
+      
+      public enum UserParameters {
+          START ("start"),
+          EXIT ("exit"),
+          USER ("user"),
+          EASY("easy"),
+          MEDIUM("medium");
+      
+          private String value;
+          private UserParameters(String value){
+              this.value = value;
+          }
+      
+          public static UserParameters fromString(String value){
+              if(value!=null){
+                  for(UserParameters p:UserParameters.values()){
+                      if(value.equalsIgnoreCase(p.value)){
+                          return p;
+                      }
+                  }
+              }
+              throw new IllegalArgumentException("Bad parameters!");
+          }
+      
+          public String getValue(){
+              return value;
+          }
+      
+          @Override
+          public String toString(){
+              return "UserParameter {value = " + value + "}";
+          }
+      }
+    learner_created: true
+  - name: src/tictactoe/WrongCharacterException.java
+    visible: true
+    text: |
+      package tictactoe;
+      
+      public class WrongCharacterException extends Exception{
+          public WrongCharacterException(String message){
+              super(message);
+          }
+      }
+    learner_created: true
+  - name: src/tictactoe/TicTacToeGame.java
+    visible: true
+    text: |
+      package tictactoe;
+      
+      import java.util.Objects;
+      import java.util.Random;
+      import java.util.Scanner;
+      
+      public class TicTacToeGame {
+          Scanner sc = new Scanner(System.in);
+          char[][] field;
+          int[] coordinates;
+          UserParameters menuChoice;
+          UserParameters firstPlayer;
+          UserParameters secondPlayer;
+      
+          public void start() {
+      //        System.out.println("Method: start");
+              inputMenuChoice();
+              game();
+              printTheResult();
+          }
+      
+          private String[] inputMenuChoice() {
+      //        System.out.println("Method: inputMenuChoice");
+              boolean isInputCorrect = false;
+              String[] userParamsArray = null;
+      
+              do {
+                  System.out.print("Input command: ");
+                  String userInput = sc.nextLine();
+      
+                  //проверка на NULL, чтобы выполнить split
+                  if (Objects.equals(userInput, null)) {
+                      System.out.println("Bad parameters!");
+                      continue;
+                  }
+                  userParamsArray = userInput.split(" ");
+      
+                  try {
+                      menuChoice = UserParameters.fromString(userParamsArray[0]);
+                  } catch (IllegalArgumentException e) {
+                      System.out.println(e.getMessage());
+                  }
+      
+                  if (menuChoice == UserParameters.EXIT) {
+                      sc.close();
+                      System.exit(0);
+                  }
+      
+                  if (userParamsArray.length != 3) {
+                      System.out.println("Bad parameters!");
+                      continue;
+                  }
+      
+                  try {
+                      firstPlayer = UserParameters.fromString(userParamsArray[1]);
+                  } catch (IllegalArgumentException e) {
+                      System.out.println(e.getMessage());
+                      continue;
+                  }
+      
+                  try {
+                      secondPlayer = UserParameters.fromString(userParamsArray[2]);
+                  } catch (IllegalArgumentException e) {
+                      System.out.println(e.getMessage());
+                      continue;
+                  }
+      
+                  isInputCorrect = true;
+              } while (!isInputCorrect);
+      
+              return userParamsArray;
+          }
+      
+          private void game() {
+      //        System.out.println("Method: game");
+      
+              if (menuChoice.equals(UserParameters.START)) {
+                  createEmptyGrid(3, 3);
+                  printGrid();
+              }
+      
+              do {
+                  nextMove(firstPlayer);
+                  System.out.println("firstMove");
+                  nextMove(secondPlayer);
+                  System.out.println("secondMove");
+              } while (isGameContinuing());
+          }
+      
+          private void nextMove(UserParameters player) {
+      //        System.out.println("Method: nextMove");
+              if (isGameContinuing()) {
+                  switch (player) {
+                      case USER:
+                          userMakingMove();
+                          System.out.println("userMakingMove");
+                          break;
+                      case EASY:
+                          easyMakingMove();
+                          System.out.println("computerMakingMove");
+                          break;
+                      case MEDIUM:
+                          mediumMakingMove();
+                          break;
+                      default:
+                          System.out.println("Nondefined behavior. Exit...");
+                          System.exit(1);
+                          break;
+                  }
+              }
+          }
+      
+          private void userMakingMove() {
+      //        System.out.println("Method: userMakingMove");
+              char XorO = defineXOrO();
+      
+              boolean moveMadeSuccessfully = false;
+              int x = 0;
+              int y = 0;
+      
+              do {
+                  System.out.println("Enter the coordinates: ");
+      
+                  String s = sc.nextLine();
+      
+                  if (Objects.equals(s, null)) {
+                      System.out.println("You should enter numbers!");
+                      continue;
+                  }
+                  String[] stringArr = s.split(" ");
+      
+                  if (stringArr.length != 2) {
+                      System.out.println("You should enter two numbers with a space!");
+                      continue;
+                  }
+      
+                  coordinates = new int[2];
+      
+                  for (int i = 0; i < coordinates.length; i++) {
+                      try {
+                          coordinates[i] = Integer.parseInt(stringArr[i]);
+                      } catch (NumberFormatException e) {
+                          System.out.println("You should enter numbers!");
+                      }
+                  }
+      
+                  if (coordinates[0] <= 0 || coordinates[0] > 3
+                          || coordinates[1] <= 0 || coordinates[1] > 3) {
+                      System.out.println("Coordinates should be from 1 to 3!");
+      
+                  } else if (field[coordinates[0] - 1][coordinates[1] - 1] != '_') {
+                      System.out.println("This cell is occupied! Choose another one!");
+      
+                  } else {
+                      moveMadeSuccessfully = true;
+      //                System.out.println("moveMadeSuccessfully");
+                      //уменьшаем значение координат на единицу
+                      --coordinates[0];
+                      --coordinates[1];
+                      upgradeTheGrid(coordinates, XorO);
+                  }
+      
+              } while (!moveMadeSuccessfully);
+          }
+      
+          private void easyMakingMove() {
+      //        System.out.println("Method: computerMakingMove");
+              System.out.println("Making move level \"easy\"");
+              int[] coordinates = {0, 0};
+      
+              boolean cellIsOccupied = false;
+      
+              Random rand = new Random();
+      
+              do {
+                  coordinates[0] = rand.nextInt(3);
+                  coordinates[1] = rand.nextInt(3);
+      
+                  cellIsOccupied = field[coordinates[0]][coordinates[1]] != '_';
+              } while (cellIsOccupied);
+      
+              upgradeTheGrid(coordinates, defineXOrO());
+          }
+      
+          private void mediumMakingMove() {
+      //        System.out.println("Method: mediumMakingMove");
+      
+              //WIN_STRATEGY
+              char myChar = defineXOrO();
+              int[] nextMove = {-1,-1};
+      
+              nextMove = twoCharactersAreTheSameInARow(myChar);
+              if(nextMove[0] != -1){
+                  upgradeTheGrid(nextMove,myChar);
+                  return;
+              }
+      
+              nextMove = twoCharactersAreTheSameInAColumn(myChar);
+              if(nextMove[0] != -1){
+                  upgradeTheGrid(nextMove,myChar);
+                  return;
+              }
+      
+              nextMove = twoCharactersAreTheSameInTheDirectDiagonal(myChar);
+              if(nextMove[0] != -1){
+                  upgradeTheGrid(nextMove,myChar);
+                  return;
+              }
+      
+              nextMove = twoCharactersAreTheSameInTheReverseDiagonal(myChar);
+              if(nextMove[0] != -1){
+                  upgradeTheGrid(nextMove,myChar);
+                  return;
+              }
+      
+              //BLOCK_OPPONENT_STRATEGY
+              char opponentChar = myChar == 'X' ? 'O' : 'X';
+              nextMove = twoCharactersAreTheSameInARow(opponentChar);
+              if(nextMove[0] != -1){
+                  upgradeTheGrid(nextMove,myChar);
+                  return;
+              }
+      
+              nextMove = twoCharactersAreTheSameInAColumn(opponentChar);
+              if(nextMove[0] != -1){
+                  upgradeTheGrid(nextMove,myChar);
+                  return;
+              }
+      
+              nextMove = twoCharactersAreTheSameInTheDirectDiagonal(opponentChar);
+              if(nextMove[0] != -1){
+                  upgradeTheGrid(nextMove,myChar);
+                  return;
+              }
+      
+              nextMove = twoCharactersAreTheSameInTheReverseDiagonal(opponentChar);
+              if(nextMove[0] != -1){
+                  upgradeTheGrid(nextMove,myChar);
+                  return;
+              }
+      
+              easyMakingMove();
+          }
+      
+          private int[] twoCharactersAreTheSameInARow(char c) {
+      //        System.out.println("Method: twoCharactersAreTheSameInARow");
+              int[] nextMoveCoordinates = {-1,-1};
+              int expSum = c * 2 + '_';
+      
+              for (int i = 0; i < field.length; i++) {
+                  int sumOfChars = 0;
+                  for (int j = 0; j < field[i].length; j++) {
+                      sumOfChars += field[i][j];
+                  }
+      
+                  if ((double) sumOfChars == (double) expSum) {
+                      nextMoveCoordinates[0] = i;
+      
+                      for (int j = 0; j < field[i].length; j++) {
+                          if(field[i][j] == '_'){
+                              nextMoveCoordinates[1] = j;
+                          }
+                      }
+                  }
+              }
+      
+              return nextMoveCoordinates;
+          }
+      
+          private int[] twoCharactersAreTheSameInAColumn(char c) {
+      //        System.out.println("Method: twoCharactersAreTheSameInAColumn");
+              int[] nextMoveCoordinates = {-1,-1};
+              int expSum = c * 2 + '_';
+      
+              for (int j = 0; j < field.length; j++) {
+                  int sumOfChars = 0;
+                  for (int i = 0; i < field.length; i++) {
+                      sumOfChars += field[i][j];
+                  }
+      
+                  if ((double) sumOfChars == (double) expSum) {
+                      //значение столбца
+                      nextMoveCoordinates[1] = j;
+      
+                      for (int i = 0; i < field.length; i++) {
+                          if(field[i][j] == '_'){
+                              nextMoveCoordinates[0] = i;
+                          }
+                      }
+                  }
+              }
+      
+              return nextMoveCoordinates;
+          }
+      
+          private int[] twoCharactersAreTheSameInTheDirectDiagonal(char c) {
+      //        System.out.println("Method: twoCharactersAreTheSameInTheDirectDiagonal");
+              int[] nextMoveCoordinates = {-1,-1};
+              int expSum = c * 2 + '_';
+              int sumOfChars = 0;
+      
+              for (int i = 0; i < field.length; i++) {
+                  sumOfChars += field[i][i];
+              }
+                  if ((double) sumOfChars == (double) expSum) {
+                      for(int i = 0; i < field.length; i++){
+                          if(field[i][i] == '_'){
+                              nextMoveCoordinates[0] = i;
+                              nextMoveCoordinates[1] = i;
+                          }
+                      }
+                  }
+      
+      
+              return nextMoveCoordinates;
+          }
+      
+          private int[] twoCharactersAreTheSameInTheReverseDiagonal(char c) {
+      //        System.out.println("Method: twoCharactersAreTheSameInTheReverseDiagonal");
+              int[] nextMoveCoordinates = {-1,-1};
+              int expSum = c * 2 + '_';
+              int sumOfChars = 0;
+      
+              for (int i = 0, j = field[i].length - 1; i < field.length && j >= 0; i++, j--) {
+                  sumOfChars += field[i][j];
+              }
+              if ((double) sumOfChars == (double) expSum) {
+                  for (int i = 0, j = field[i].length - 1; i < field.length && j >= 0; i++, j--) {
+                      if(field[i][j] == '_'){
+                          nextMoveCoordinates[0] = i;
+                          nextMoveCoordinates[1] = j;
+                      }
+                  }
+              }
+      
+      
+              return nextMoveCoordinates;
+          }
+      
+          private void printTheResult() {
+      //        System.out.println("Method: printTheResult");
+              char result = analyzeTheCurrentState();
+      
+              switch (result) {
+                  case 'C':
+                      System.out.println("Game is not finished");
+                      break;
+                  case 'D':
+                      System.out.println("Draw");
+                      break;
+                  case 'X':
+                      System.out.println("X wins");
+                      break;
+                  case 'O':
+                      System.out.println("O wins");
+                      break;
+                  case 'U':
+                      System.out.println("Unknown result");
+                      break;
+                  default:
+                      System.out.println("Unexpected result");
+                      break;
+              }
+          }
+      
+          private boolean isGameContinuing() {
+      //        System.out.println("Method: isGameContinuing");
+              return analyzeTheCurrentState() == 'C';
+          }
+      
+      
+          private void createEmptyGrid(int length, int width) {
+      //        System.out.println("Method: createEmptyGrid");
+              field = new char[length][width];
+      
+              for (int i = 0, k = 0; i < field.length; i++) {
+                  for (int j = 0; j < field[i].length; j++) {
+                      field[i][j] = '_';
+                  }
+              }
+          }
+      
+      
+          private void printGrid() {
+      //        System.out.println("Method: printGrid");
+              System.out.println("---------");
+      
+              for (int i = 0; i < field.length; i++) {
+                  System.out.print("| ");
+                  for (int j = 0; j < field[i].length; j++) {
+                      System.out.print(field[i][j]);
+                      if (j != field[i].length - 1) {
+                          System.out.print(" ");
+                      }
+                  }
+                  System.out.println(" |");
+              }
+              System.out.println("---------");
+          }
+      
+      
+          private char analyzeTheCurrentState() {
+      //        System.out.println("Method: analyzeTheCurrentState");
+              boolean isXWin = false;
+              boolean isOWin = false;
+      
+              char resultInARow = allCharactersAreTheSameInARow();
+              char resultInTheDirectDiagonal = allCharactersAreTheSameInTheDirectDiagonal();
+              char resultInTheReverseDiagonal = allCharactersAreTheSameInTheReverseDiagonal();
+              char resultInAColumn = allCharactersAreTheSameInAColumn();
+      
+              if (resultInARow == 'X'
+                      || resultInTheDirectDiagonal == 'X'
+                      || resultInTheReverseDiagonal == 'X'
+                      || resultInAColumn == 'X'
+              ) {
+                  return 'X';
+              }
+      
+              if (resultInARow == 'O'
+                      || resultInTheDirectDiagonal == 'O'
+                      || resultInTheReverseDiagonal == 'O'
+                      || resultInAColumn == 'O'
+              ) {
+                  return 'O';
+              }
+      
+              if ((!isXWin && !isOWin) && isEmptyCells()) {
+                  //the game is continuing
+                  return 'C';
+              }
+      
+              if ((!isXWin && !isOWin) && !isEmptyCells()) {
+                  //the game is finished, noone wins
+                  return 'D';
+              }
+      
+              return 'U';
+          }
+      
+          private void upgradeTheGrid(int[] coordinates, char c) {
+      //        System.out.println("Method: upgradeTheGrid");
+              field[coordinates[0]][coordinates[1]] = c;
+              printGrid();
+          }
+      
+          private char defineXOrO() {
+      //        System.out.println("Method: defineXOrO");
+              int countX = 0;
+              int countO = 0;
+      
+              for (int i = 0; i < field.length; i++) {
+                  for (int j = 0; j < field[i].length; j++) {
+                      if (field[i][j] == 'X') {
+                          countX++;
+                      } else if (field[i][j] == 'O') {
+                          countO++;
+                      }
+                  }
+              }
+      
+              return countX > countO ? 'O' : 'X';
+          }
+      
+          private boolean isEmptyCells() {
+      //        System.out.println("Method: isEmptyCells");
+              int countEmptyCells = 0;
+      
+              for (int i = 0; i < field.length && countEmptyCells < 1; i++) {
+                  for (int j = 0; j < field[i].length; j++) {
+                      if (field[i][j] == '_') {
+                          ++countEmptyCells;
+                          break;
+                      }
+                  }
+              }
+      
+              return countEmptyCells > 0;
+          }
+      
+          private char allCharactersAreTheSameInARow() {
+      //        System.out.println("Method: allCharactersAreTheSameInARow");
+              //W - noone wins; X - X wins; O - O wins;
+              char winner = 'W';
+      
+              for (int i = 0; i < field.length; i++) {
+                  //char X = 88; char O = 79;
+                  int sumOfChars = 0;
+                  for (int j = 0; j < field[i].length; j++) {
+                      sumOfChars += field[i][j];
+                  }
+      
+                  if ((double) sumOfChars == (double) field[i][0] * field.length && field[i][0] != '_') {
+                      winner = field[i][0];
+                      break;
+                  }
+              }
+      
+              return winner;
+          }
+      
+          private char allCharactersAreTheSameInAColumn() {
+      //        System.out.println("Method: allCharactersAreTheSameInAColumn");
+              //W - noone wins; I - there are X-win and O-win; X - X wins; O - O wins;
+              char winner = 'W';
+      
+              //j - порядковый номер в строке
+              for (int j = 0; j < field[0].length; j++) {
+                  int sumOfChars = 0;
+                  //i - порядковый номер в стобце
+                  for (int i = 0; i < field.length; i++) {
+                      sumOfChars += field[i][j];
+                  }
+      
+                  if ((double) sumOfChars == (double) field[0][j] * field.length && field[0][j] != '_') {
+                      winner = field[0][j];
+                      break;
+                  }
+              }
+      
+              return winner;
+          }
+      
+          private char allCharactersAreTheSameInTheDirectDiagonal() {
+      //        System.out.println("Method: allCharactersAreTheSameInTheDirectDiagonal");
+              //W - noone wins; X - X wins; O - O wins;
+              char winner = 'W';
+      
+              int sumOfChars = 0;
+              for (int i = 0; i < field.length; i++) {
+                  sumOfChars += field[i][i];
+              }
+      
+              if ((double) sumOfChars == (double) field[0][0] * field.length && field[0][0] != '_') {
+                  winner = field[0][0];
+              }
+      
+              return winner;
+          }
+      
+          private char allCharactersAreTheSameInTheReverseDiagonal() {
+      //        System.out.println("Method: allCharactersAreTheSameInTheReverseDiagonal");
+              //W - noone wins; X - X wins; O - O wins;
+              char winner = 'W';
+              int sumOfChars = 0;
+              for (int i = 0, j = field[i].length - 1; i < field.length && j >= 0; i++, j--) {
+                  sumOfChars += field[i][j];
+              }
+      
+              if ((double) sumOfChars == (double) field[0][field.length - 1] * field.length
+                      && field[0][field.length - 1] != '_') {
+                  winner = field[0][field.length - 1];
+              }
+      
+              return winner;
+          }
+      
+          //dedicated methods:
+          private char[][] old_startInput(int length, int width) throws WrongInputException {
+              System.out.print("Enter the cells: > ");
+              String userInput = sc.nextLine();
+              if (userInput.length() != 9) {
+                  throw new WrongInputException("You entered more than 9 characters! Exit...");
+              }
+              char[] temp = userInput.toCharArray();
+              char[][] arr = new char[length][width];
+      
+              for (int i = 0, k = 0; i < arr.length && k < temp.length; i++) {
+                  for (int j = 0; j < arr[i].length; j++) {
+                      if (temp[k] == 'X' || temp[k] == 'x') {
+                          arr[i][j] = 'X';
+                      } else if (temp[k] == 'O' || temp[k] == 'o') {
+                          arr[i][j] = 'O';
+                      } else if (temp[k] == '_' || temp[k] == ' ') {
+                          arr[i][j] = '_';
+                      } else {
+                          throw new WrongInputException("You entered the wrong data! The possible input are: X,x,O,o,_. Exit...");
+                      }
+                      k++;
+                  }
+              }
+      
+              return arr;
+          }
+      
+          private char old_allCharactersAreTheSameInARow() {
+              boolean isAllCharactersAreTheSameInARow = false;
+              char winner = 'W';
+              //W - noone wins; I - there are X-win and O-win; X - X wins; O - O wins;
+      
+              for (int i = 0; i < field.length; i++) {
+                  isAllCharactersAreTheSameInARow = true;
+                  for (int j = 0; isAllCharactersAreTheSameInARow && j < field[i].length - 1; j++) {
+                      if (field[i][j] == field[i][j + 1] && field[i][j] != '_') {
+                          isAllCharactersAreTheSameInARow = true;
+                          if (j == field[i].length - 2) {
+                              if (winner == 'W') {
+                                  winner = field[i][j];
+                              } else {
+                                  winner = 'I';
+                              }
+                          }
+                      } else {
+                          isAllCharactersAreTheSameInARow = false;
+                          break;
+                      }
+                  }
+              }
+              return winner;
+          }
+      
+          private char old_allCharactersAreTheSameInAColumn() {
+              boolean isAllCharactersAreTheSameInAColumn = false;
+              char winner = 'W';
+              //W - noone wins; I - there are X-win and O-win; X - X wins; O - O wins;
+      
+              //j - порядковый номер в строке
+              for (int j = 0; j < field[0].length; j++) {
+                  isAllCharactersAreTheSameInAColumn = true;
+      
+                  //i - порядковый номер в стобце
+                  for (int i = 0; isAllCharactersAreTheSameInAColumn && i < field.length - 1; i++) {
+                      if (field[i][j] == field[i + 1][j] && field[i][j] != '_') {
+                          if (i == field.length - 2) {
+                              if (winner == 'W') {
+                                  winner = field[i][j];
+      //                            System.out.println("isAllCharactersAreTheSameInAColumn: Winner = " + winner);
+                              } else {
+                                  winner = 'I';
+      //                            System.out.println("isAllCharactersAreTheSameInAColumn: Winner = " + winner);
+                              }
+                          }
+                      } else {
+                          isAllCharactersAreTheSameInAColumn = false;
+                          break;
+                      }
+                  }
+              }
+      
+              return winner;
+          }
+      
+          private char old_allCharactersAreTheSameInTheDirectDiagonal() {
+              boolean isAllCharactersAreTheSameInTheDirectDiagonal = true;
+      
+              char winner = 'W';
+              //W - noone wins; X - X wins; O - O wins;
+      
+              for (int i = 0; isAllCharactersAreTheSameInTheDirectDiagonal && i < field.length - 1; i++) {
+                  if (field[i][i] == field[i + 1][i + 1] && field[i][i] != '_') {
+                      if (i == field.length - 2) {
+                          winner = field[i][i];
+                      }
+                  } else {
+                      isAllCharactersAreTheSameInTheDirectDiagonal = false;
+                      break;
+                  }
+              }
+              return winner;
+          }
+      
+          private char old_allCharactersAreTheSameInTheReverseDiagonal() {
+              boolean isAllCharactersAreTheSameInTheReverseDiagonal2 = true;
+              char winner = 'W';
+              //W - noone wins; X - X wins; O - O wins;
+      
+              for (int i = 0, j = field[i].length - 1; isAllCharactersAreTheSameInTheReverseDiagonal2 && i < field.length - 1 && j > 0; i++, j--) {
+                  if (field[i][j] == field[i + 1][j - 1] && field[i][j] != '_') {
+                      if (i == field.length - 2) {
+                          winner = field[i][i];
+                      }
+                  } else {
+                      isAllCharactersAreTheSameInTheReverseDiagonal2 = false;
+                      break;
+                  }
+              }
+              return winner;
+          }
+      
+          private boolean old_isCountOfXsAndOsValid() {
+              int countX = 0;
+              int countO = 0;
+      
+              for (int i = 0; i < field.length; i++) {
+                  for (int j = 0; j < field[i].length; j++) {
+                      if (field[i][j] == 'X') {
+                          countX++;
+                      } else if (field[i][j] == 'O') {
+                          countO++;
+                      }
+                  }
+              }
+              return Math.abs(countX - countO) < 2;
+          }
+      }
+    learner_created: true
+  - name: src/tictactoe/Coordinates.java
+    visible: true
+    learner_created: true
+feedback_link: https://hyperskill.org/learn/step/7438#comment
+status: Unchecked
+record: 5
